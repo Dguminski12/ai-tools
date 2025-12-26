@@ -1,0 +1,70 @@
+openapi: 3.0.3
+info:
+  title: Pi Dev Tools
+  version: 1.0.0
+servers:
+  - url: https://uncle-maui-butter-cho.trycloudflare.com
+
+paths:
+  /health:
+    get:
+      operationId: health
+      responses:
+        "200":
+          description: OK
+
+  /list:
+    get:
+      operationId: listDir
+      parameters:
+        - in: query
+          name: path
+          schema: { type: string }
+      responses:
+        "200":
+          description: Directory listing
+
+  /read:
+    post:
+      operationId: readFile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [path]
+              properties:
+                path: { type: string }
+                start_line: { type: integer, default: 1 }
+                end_line: { type: integer, default: 200 }
+      responses:
+        "200":
+          description: File content
+
+  /search:
+    post:
+      operationId: searchRepo
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [query]
+              properties:
+                query: { type: string }
+                max_results: { type: integer, default: 20 }
+      responses:
+        "200":
+          description: Search results
+
+components:
+  securitySchemes:
+    apiKeyHeader:
+      type: apiKey
+      in: header
+      name: x-api-key
+
+security:
+  - apiKeyHeader: []

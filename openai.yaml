@@ -1,9 +1,10 @@
-openapi: 3.0.3
+openapi: 3.1.1
 info:
   title: Pi Dev Tools
   version: 1.0.0
 servers:
-  - url: https://uncle-maui-butter-cho.trycloudflare.com
+  - url: https://api.dsgdev.dev
+ 
 
 paths:
   /health:
@@ -60,6 +61,7 @@ paths:
           description: Search results
 
 components:
+  schemas: {}
   securitySchemes:
     apiKeyHeader:
       type: apiKey

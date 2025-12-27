@@ -1,8 +1,10 @@
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import FastAPI, Header, HTTPException, Body
 from pydantic import BaseModel
 from pathlib import Path
 import os
 import re
+
+print("Loaded PI_TOOLS_API_KEY:", os.environ.get("PI_TOOLS_API_KEY"))
 
 app = FastAPI(title="Pi Dev Tools", version="1.0.0")
 
@@ -24,6 +26,7 @@ MAX_RESULTS = 50
 
 def require_key(x_api_key: str | None = Header(default=None)):
     api_key = get_api_key()
+    print("HEADER x-api-key:", x_api_key, "ENV PI_TOOLS_API_KEY:", api_key)
 
     if not api_key:
         raise HTTPException(
@@ -150,11 +153,18 @@ class WriteBody(BaseModel):
     content: str
 
 
+class WriteBody(BaseModel):
+    path: str
+    content: str
+
 @app.post("/write")
-def write_file(body: WriteBody, x_api_key: str | None = Header(default=None)):
+def write_file(
+    body: WriteBody,
+    x_api_key: str | None = Header(default=None)
+):
     """
-    Securely write or overwrite a text file within DEV_ROOT.
-    Refuses to write outside the sandbox or into restricted paths.
+    Safely create or overwrite a file inside DEV_ROOT.
+    Requires a valid API key header.
     """
     require_key(x_api_key)
     p = safe_resolve(body.path)
@@ -162,14 +172,41 @@ def write_file(body: WriteBody, x_api_key: str | None = Header(default=None)):
     # Ensure parent directory exists
     p.parent.mkdir(parents=True, exist_ok=True)
 
-    # Refuse to write to binary files
-    if p.suffix.lower() in DENY_EXTS:
-        raise HTTPException(status_code=403, detail="File type not allowed")
+    # Write file content
+    p.write_text(body.content, encoding="utf-8")
 
-    # Write content safely
-    try:
-        p.write_text(body.content, encoding="utf-8")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Write failed: {e}")
+    return {
+        "path": str(p.relative_to(DEV_ROOT)),
+        "bytes_written": len(body.content)
+    }
 
-    return {"path": str(p.relative_to(DEV_ROOT)), "bytes_written": len(body.content)}
+@app.post("/append")
+def append_file(
+    body: WriteBody,
+    x_api_key: str | None = Header(default=None)
+):
+    """
+    Safely append text to a file inside DEV_ROOT.
+    Creates the file if it does not exist.
+    Requires a valid API key header.
+    """
+    require_key(x_api_key)
+    p = safe_resolve(body.path)
+
+    # Ensure the directory exists
+    p.parent.mkdir(parents=True, exist_ok=True)
+
+    # Append content
+    with p.open("a", encoding="utf-8") as f:
+        f.write(body.content)
+
+    return {
+        "path": str(p.relative_to(DEV_ROOT)),
+        "bytes_appended": len(body.content)
+    }
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=5050)
+

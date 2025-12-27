@@ -144,3 +144,32 @@ def search(body: SearchBody, x_api_key: str | None = Header(default=None)):
                     if len(results) >= max_results:
                         return {"query": q, "results": results}
     return {"query": q, "results": results}
+
+class WriteBody(BaseModel):
+    path: str
+    content: str
+
+
+@app.post("/write")
+def write_file(body: WriteBody, x_api_key: str | None = Header(default=None)):
+    """
+    Securely write or overwrite a text file within DEV_ROOT.
+    Refuses to write outside the sandbox or into restricted paths.
+    """
+    require_key(x_api_key)
+    p = safe_resolve(body.path)
+
+    # Ensure parent directory exists
+    p.parent.mkdir(parents=True, exist_ok=True)
+
+    # Refuse to write to binary files
+    if p.suffix.lower() in DENY_EXTS:
+        raise HTTPException(status_code=403, detail="File type not allowed")
+
+    # Write content safely
+    try:
+        p.write_text(body.content, encoding="utf-8")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Write failed: {e}")
+
+    return {"path": str(p.relative_to(DEV_ROOT)), "bytes_written": len(body.content)}
